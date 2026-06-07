@@ -46,10 +46,30 @@ def _format_results(matches: list[dict], team_flags: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
+SCORING_RULES = {
+    "group_win": 3,
+    "group_draw": 1,
+    "advance_from_groups": 5,
+    "win_round_of_32": 8,
+    "win_round_of_16": 12,
+    "win_quarter_final": 18,
+    "win_semi_final": 25,
+    "win_final": 40,
+    "third_place_playoff": "ignored",
+    "extra_time_or_penalties": "winner gets the full round bonus regardless",
+    "notes": [
+        "Best 8 third-placed teams also receive the advance_from_groups bonus",
+        "Ties in standings are split equally, no tiebreaker",
+        "Prize split is 60/25/15 percent for 1st/2nd/3rd",
+    ],
+}
+
+
 def _sweep_context(state: dict) -> str:
     """Serialise the sweep state into a compact context block for Claude."""
     return json.dumps(
         {
+            "scoring_rules": SCORING_RULES,
             "all_teams": sorted(state.get("team_flags", {}).keys()),
             "players": state.get("players", {}),
             "advanced_teams": state.get("advanced_teams", []),
