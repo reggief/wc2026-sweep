@@ -26,6 +26,17 @@ from scoring import Match
 
 DEFAULT_DATA_PATH = Path("data/sweep.json")
 
+DEFAULT_STATE: dict = {
+    "players": {},
+    "advanced_teams": [],
+    "matches": [],
+    "winner_overrides": {},
+    "team_flags": {},
+    "last_polled": None,
+    "last_daily_sent": None,
+    "champion_announced": False,
+}
+
 
 def _data_path() -> Path:
     raw = os.environ.get("DATA_PATH")
@@ -34,8 +45,11 @@ def _data_path() -> Path:
 
 def load() -> dict:
     path = _data_path()
-    with path.open(encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with path.open(encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return dict(DEFAULT_STATE)
 
 
 def save(state: dict) -> None:
