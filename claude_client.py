@@ -50,6 +50,7 @@ def _sweep_context(state: dict) -> str:
     """Serialise the sweep state into a compact context block for Claude."""
     return json.dumps(
         {
+            "all_teams": sorted(state.get("team_flags", {}).keys()),
             "players": state.get("players", {}),
             "advanced_teams": state.get("advanced_teams", []),
             "standings": state.get("standings", []),
