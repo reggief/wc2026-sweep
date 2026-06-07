@@ -17,7 +17,7 @@ GROUP_DRAW_POINTS = 1
 ADVANCE_FROM_GROUPS_POINTS = 5
 
 # Prize pool percentage split for 1st / 2nd / 3rd
-PRIZE_SPLITS = [0.60, 0.25, 0.15]
+PRIZE_SPLITS = [0.60, 0.30, 0.10]
 
 # Rounds that contribute zero points to the sweep
 IGNORED_ROUNDS = {"third_place"}

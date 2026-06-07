@@ -13,6 +13,8 @@ import os
 
 import anthropic
 
+from scoring import PRIZE_SPLITS
+
 MODEL = "claude-sonnet-4-6"
 
 _client: anthropic.Anthropic | None = None
@@ -46,30 +48,32 @@ def _format_results(matches: list[dict], team_flags: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-SCORING_RULES = {
-    "group_win": 3,
-    "group_draw": 1,
-    "advance_from_groups": 5,
-    "win_round_of_32": 8,
-    "win_round_of_16": 12,
-    "win_quarter_final": 18,
-    "win_semi_final": 25,
-    "win_final": 40,
-    "third_place_playoff": "ignored",
-    "extra_time_or_penalties": "winner gets the full round bonus regardless",
-    "notes": [
-        "Best 8 third-placed teams also receive the advance_from_groups bonus",
-        "Ties in standings are split equally, no tiebreaker",
-        "Prize split is 60/25/15 percent for 1st/2nd/3rd",
-    ],
-}
+def _scoring_rules() -> dict:
+    pct = [f"{int(p * 100)}%" for p in PRIZE_SPLITS]
+    places = ["1st", "2nd", "3rd"][: len(pct)]
+    prize_str = ", ".join(f"{pl}: {pc}" for pl, pc in zip(places, pct))
+    return {
+        "group_win_pts": 3,
+        "group_draw_pts": 1,
+        "advance_from_groups_pts": 5,
+        "win_round_of_32_pts": 8,
+        "win_round_of_16_pts": 12,
+        "win_quarter_final_pts": 18,
+        "win_semi_final_pts": 25,
+        "win_final_pts": 40,
+        "third_place_playoff": "ignored — no points awarded",
+        "extra_time_or_penalties": "winning team gets the full round bonus regardless of how they won",
+        "advancement_note": "best 8 third-placed teams also receive the advance_from_groups bonus",
+        "ties": "split equally, no tiebreaker",
+        "prize_split": prize_str,
+    }
 
 
 def _sweep_context(state: dict) -> str:
     """Serialise the sweep state into a compact context block for Claude."""
     return json.dumps(
         {
-            "scoring_rules": SCORING_RULES,
+            "scoring_rules": _scoring_rules(),
             "all_teams": sorted(state.get("team_flags", {}).keys()),
             "players": state.get("players", {}),
             "advanced_teams": state.get("advanced_teams", []),
@@ -123,29 +127,32 @@ Just write the commentary paragraph, nothing else."""
 def answer_query(state: dict, question: str, standings: list[dict]) -> str:
     """Generate a reply to a natural language query from the WhatsApp group."""
     context = _sweep_context({**state, "standings": standings})
-    results_summary = json.dumps(
+
+    all_matches_summary = json.dumps(
         [
             {
                 "home": m["home_team"],
                 "away": m["away_team"],
-                "score": f"{m['home_score']}-{m['away_score']}",
                 "round": m["round"],
+                "date_utc": m["date"],
                 "completed": m["completed"],
+                "score": f"{m['home_score']}-{m['away_score']}" if m.get("completed") else None,
             }
             for m in state.get("matches", [])
-            if m.get("completed")
+            if m.get("home_team")  # skip undetermined knockout slots
         ],
         indent=2,
     )
 
     prompt = f"""You are a helpful World Cup 2026 sweep bot responding in a WhatsApp group.
 Keep replies concise — this is a chat, not an essay.
+Dates in the match schedule are stored as UTC; the tournament is played in the US/Mexico/Canada (UTC-4 to UTC-7).
 
 Sweep context:
 {context}
 
-Completed match results:
-{results_summary}
+Full match schedule (completed and upcoming):
+{all_matches_summary}
 
 Current standings:
 {json.dumps(standings, indent=2)}
