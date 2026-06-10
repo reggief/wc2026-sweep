@@ -31,8 +31,29 @@ log = logging.getLogger(__name__)
 BOT_TRIGGER = "worldcupbot"
 
 
+def _sync_players_from_env() -> None:
+    """
+    If PLAYERS_JSON is set, write it into sweep.json as the players mapping.
+    This is the mechanism for updating the draw without needing shell access.
+    """
+    raw = os.environ.get("PLAYERS_JSON", "").strip()
+    if not raw:
+        return
+    import json as _json
+    try:
+        players = _json.loads(raw)
+    except Exception as exc:
+        log.error("PLAYERS_JSON is not valid JSON: %s", exc)
+        return
+    current = state.load()
+    current["players"] = players
+    state.save(current)
+    log.info("Players mapping loaded from PLAYERS_JSON: %d players", len(players))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _sync_players_from_env()
     _scheduler = sched.create_scheduler()
     _scheduler.start()
     log.info("Scheduler started")
