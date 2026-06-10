@@ -32,7 +32,11 @@ class TestFlagEmoji:
         assert flag_emoji("US") == "🇺🇸"
 
     def test_three_letter_code_returns_empty(self):
-        assert flag_emoji("SCO") == ""
+        assert flag_emoji("XYZ") == ""  # unsupported 3-letter code
+
+    def test_subdivision_flags_supported(self):
+        assert flag_emoji("ENG") != ""  # England
+        assert flag_emoji("SCO") != ""  # Scotland
 
     def test_empty_string_returns_empty(self):
         assert flag_emoji("") == ""
@@ -65,8 +69,13 @@ class TestBuildTeamMap:
         assert tm["1"]["flag_emoji"] == "🇫🇷"
 
     def test_non_standard_iso2_flag_is_empty(self):
+        teams = [{"id": "9", "name_en": "Fictional", "iso2": "XYZ"}]
+        tm = build_team_map(teams)
+        assert tm["9"]["flag_emoji"] == ""
+
+    def test_england_flag_is_not_empty(self):
         tm = build_team_map(SAMPLE_TEAMS)
-        assert tm["3"]["flag_emoji"] == ""
+        assert tm["3"]["flag_emoji"] != ""  # SCO now has a subdivision flag
 
     def test_missing_iso2_handled_gracefully(self):
         teams = [{"id": "9", "name_en": "Kosovo"}]  # no iso2 key
@@ -81,9 +90,9 @@ class TestBuildTeamFlags:
         assert flags["France"] == "🇫🇷"
         assert flags["Morocco"] == "🇲🇦"
 
-    def test_non_standard_iso_gives_empty(self):
+    def test_scotland_has_subdivision_flag(self):
         flags = build_team_flags(SAMPLE_TEAMS)
-        assert flags["Scotland"] == ""
+        assert flags["Scotland"] != ""  # SCO now has a subdivision flag emoji
 
 
 # ---------------------------------------------------------------------------

@@ -281,8 +281,8 @@ class TestSplitPrizes:
         ]
         prizes = split_prizes(standings, 1000.0)
         assert prizes["Alice"] == pytest.approx(600.0)
-        assert prizes["Bob"] == pytest.approx(250.0)
-        assert prizes["Carol"] == pytest.approx(150.0)
+        assert prizes["Bob"] == pytest.approx(300.0)
+        assert prizes["Carol"] == pytest.approx(100.0)
 
     def test_tie_for_first_splits_top_two_prizes(self):
         standings = [
@@ -291,10 +291,10 @@ class TestSplitPrizes:
             {"rank": 3, "player": "Carol", "points": 10},
         ]
         prizes = split_prizes(standings, 1000.0)
-        # 1st + 2nd = 850 split two ways = 425 each
-        assert prizes["Alice"] == pytest.approx(425.0)
-        assert prizes["Bob"] == pytest.approx(425.0)
-        assert prizes["Carol"] == pytest.approx(150.0)
+        # 1st + 2nd = (60+30)% split two ways = 45% each
+        assert prizes["Alice"] == pytest.approx(450.0)
+        assert prizes["Bob"] == pytest.approx(450.0)
+        assert prizes["Carol"] == pytest.approx(100.0)
 
     def test_tie_for_second_splits_second_and_third_prizes(self):
         standings = [
@@ -304,7 +304,7 @@ class TestSplitPrizes:
         ]
         prizes = split_prizes(standings, 1000.0)
         assert prizes["Alice"] == pytest.approx(600.0)
-        # 2nd + 3rd = 400 split two ways = 200 each
+        # 2nd + 3rd = (30+10)% split two ways = 20% each
         assert prizes["Bob"] == pytest.approx(200.0)
         assert prizes["Carol"] == pytest.approx(200.0)
 
@@ -330,8 +330,8 @@ class TestSplitPrizes:
         prizes = split_prizes(standings, 1000.0)
         assert "Dave" not in prizes
         assert prizes["Alice"] == pytest.approx(600.0)
-        assert prizes["Bob"] == pytest.approx(250.0)
-        assert prizes["Carol"] == pytest.approx(150.0)
+        assert prizes["Bob"] == pytest.approx(300.0)
+        assert prizes["Carol"] == pytest.approx(100.0)
 
     def test_prizes_sum_to_prize_pool(self):
         standings = [
@@ -365,7 +365,7 @@ class TestSplitPrizes:
         ]
         prizes = split_prizes(standings, 1000.0)
         assert prizes["Alice"] == pytest.approx(600.0)
-        assert prizes["Bob"] == pytest.approx(250.0)
+        assert prizes["Bob"] == pytest.approx(300.0)
 
     def test_prize_pool_scales_correctly(self):
         standings = [
@@ -375,5 +375,5 @@ class TestSplitPrizes:
         ]
         prizes = split_prizes(standings, 500.0)
         assert prizes["Alice"] == pytest.approx(300.0)
-        assert prizes["Bob"] == pytest.approx(125.0)
-        assert prizes["Carol"] == pytest.approx(75.0)
+        assert prizes["Bob"] == pytest.approx(150.0)
+        assert prizes["Carol"] == pytest.approx(50.0)

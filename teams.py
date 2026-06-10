@@ -57,14 +57,25 @@ def fetch_all() -> tuple[list[dict], list[dict], list[dict]]:
 # Flag emoji
 # ---------------------------------------------------------------------------
 
+_SUBDIVISION_FLAGS: dict[str, str] = {
+    "ENG": "\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F",  # 🏴󠁧󠁢󠁥󠁮󠁧󠁿
+    "SCO": "\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F",  # 🏴󠁧󠁢󠁳󠁣󠁴󠁿
+    "WAL": "\U0001F3F4\U000E0067\U000E0062\U000E0077\U000E006C\U000E0073\U000E007F",  # 🏴󠁧󠁢󠁷󠁬󠁳󠁿
+}
+
+
 def flag_emoji(iso2: str) -> str:
     """
-    Regional-indicator flag emoji from a 2-letter ISO 3166-1 alpha-2 code.
-    Returns '' for codes that aren't exactly 2 ASCII letters (e.g. 'SCO').
+    Flag emoji from an ISO code.
+    Handles standard 2-letter ISO 3166-1 codes and UK subdivision codes
+    (ENG, SCO, WAL) which use Unicode tag-character sequences.
     """
+    upper = iso2.upper()
+    if upper in _SUBDIVISION_FLAGS:
+        return _SUBDIVISION_FLAGS[upper]
     if len(iso2) != 2 or not iso2.isalpha():
         return ""
-    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in iso2.upper())
+    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in upper)
 
 
 # ---------------------------------------------------------------------------

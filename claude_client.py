@@ -163,7 +163,7 @@ Answer the question directly and helpfully. If you don't have enough information
 
     msg = _get_client().messages.create(
         model=MODEL,
-        max_tokens=400,
+        max_tokens=800,
         messages=[{"role": "user", "content": prompt}],
     )
     return msg.content[0].text.strip()
