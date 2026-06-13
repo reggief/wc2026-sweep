@@ -62,8 +62,7 @@ def parse_webhook(payload: dict) -> list[dict]:
         if msg.get("type") != "text":
             continue
         chat_id: str = msg.get("chat_id", "")
-        # Whapi provides the sender's WhatsApp display name in push_name or notify
-        sender_name: str = msg.get("push_name") or msg.get("notify") or ""
+        sender_name: str = msg.get("from_name") or ""
         messages.append(
             {
                 "id": msg.get("id", ""),
