@@ -83,35 +83,36 @@ def _sweep_context(state: dict) -> str:
     )
 
 
-def daily_message(
+def match_result_message(
     state: dict,
-    yesterday_matches: list[dict],
+    new_matches: list[dict],
     standings: list[dict],
 ) -> str:
     """
-    Generate the full daily WhatsApp message.
+    Generate a result message sent immediately after a match (or batch of
+    simultaneous matches) completes.
 
     Format:
       [Claude commentary paragraph]
       [results block]
       [standings block]
     """
-    results_block = _format_results(yesterday_matches, state.get("team_flags", {}))
+    results_block = _format_results(new_matches, state.get("team_flags", {}))
     standings_block = _format_standings(standings)
     context = _sweep_context({**state, "standings": standings})
 
     prompt = f"""You are writing a message for a casual World Cup 2026 sweep competition among friends.
-The message goes to a WhatsApp group. Keep it warm, witty, and concise.
+The message goes to a WhatsApp group immediately after a match has finished. Keep it warm, witty, and concise.
 
 Sweep context (who owns which countries):
 {context}
 
-Yesterday's results:
+Match result(s) just in:
 {results_block}
 
-Task: Write ONE short paragraph (2-4 sentences) of commentary covering yesterday's matches
-and their implications for the sweep. Mention specific players and their countries where
-relevant. Do NOT include the results block or standings — those will be appended separately.
+Task: Write ONE short paragraph (2-4 sentences) reacting to the result(s) and their
+implications for the sweep. Mention specific players and their countries where relevant.
+Do NOT include the results block or standings — those will be appended separately.
 Just write the commentary paragraph, nothing else."""
 
     msg = _get_client().messages.create(
@@ -124,7 +125,7 @@ Just write the commentary paragraph, nothing else."""
     return f"{commentary}\n\n{results_block}\n\n{standings_block}"
 
 
-def answer_query(state: dict, question: str, standings: list[dict]) -> str:
+def answer_query(state: dict, question: str, standings: list[dict], sender_phone: str = "", sender_name: str = "") -> str:
     """Generate a reply to a natural language query from the WhatsApp group."""
     context = _sweep_context({**state, "standings": standings})
 
@@ -144,16 +145,33 @@ def answer_query(state: dict, question: str, standings: list[dict]) -> str:
         indent=2,
     )
 
-    prompt = f"""You are a WhatsApp bot for a casual World Cup 2026 sweep competition among friends.
+    if sender_name:
+        sender_line = f"This message was sent by {sender_name}."
+    elif sender_phone:
+        sender_line = f"This message was sent by phone number {sender_phone} (name unknown)."
+    else:
+        sender_line = "The sender's identity is unknown."
+
+    prompt = f"""You are a bot in a WhatsApp group for a casual World Cup 2026 sweep competition among friends.
 Keep replies concise — this is a chat, not an essay.
 Dates in the match schedule are stored as UTC; the tournament is played in the US/Mexico/Canada (UTC-4 to UTC-7).
 
 HOW YOU WORK (important — never tell users to provide results manually):
 - Match results are fetched automatically from a live API every 30 minutes. The completed matches
   below are always up to date. You never need results to be provided by users.
-- Every morning at 9am Melbourne time you automatically post a daily summary of the previous
-  day's results and current standings to the group.
+- A result message is automatically posted to the group after every match finishes.
 - Users trigger you by including the word "worldcupbot" in their message.
+
+SENDER: {sender_line} Their WhatsApp display name may differ from their sweep player name.
+If you can match them to a player in the sweep, feel free to do so — otherwise address them
+by their display name or just respond naturally.
+
+PERSONALITY: Be cheeky and playful. Make light jokes about people's names when it's natural
+— wordplay, famous namesakes, that sort of thing. Keep it friendly, not mean.
+SPECIAL RULE: If the sender's name is Bart, you MUST make a Simpsons reference somewhere
+in your reply. Every single time, no exceptions. Don't be too obvious about it — weave it in.
+
+You are happy to answer general questions too, not just sweep-related ones. Be friendly and helpful.
 
 Sweep context:
 {context}
@@ -166,7 +184,7 @@ Current standings:
 
 User question: {question}
 
-Answer the question directly and helpfully. If you don't have enough information, say so briefly."""
+Answer the question directly and helpfully."""
 
     msg = _get_client().messages.create(
         model=MODEL,

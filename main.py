@@ -95,12 +95,12 @@ async def webhook(request: Request):
         if target_group and msg["group_id"] != target_group:
             continue
 
-        _handle_query(msg["text"])
+        _handle_query(msg["text"], sender_phone=msg["sender_phone"], sender_name=msg["sender_name"])
 
     return {"ok": True}
 
 
-def _handle_query(text: str) -> None:
+def _handle_query(text: str, sender_phone: str = "", sender_name: str = "") -> None:
     try:
         current_state = state.load()
     except Exception as exc:
@@ -113,7 +113,7 @@ def _handle_query(text: str) -> None:
     standings = calculate_standings(players, all_matches, advanced_set)
 
     try:
-        reply = claude_client.answer_query(current_state, text, standings)
+        reply = claude_client.answer_query(current_state, text, standings, sender_phone=sender_phone, sender_name=sender_name)
         whapi.send_message(reply)
     except Exception as exc:
         log.error("Failed to answer query: %s", exc)
