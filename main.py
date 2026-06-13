@@ -79,6 +79,10 @@ async def webhook(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
+    # Temporary debug log — remove once sender name is confirmed working
+    for raw_msg in payload.get("messages", []):
+        log.info("RAW_MSG_DEBUG: %s", raw_msg)
+
     messages = whapi.parse_webhook(payload)
 
     for msg in messages:
