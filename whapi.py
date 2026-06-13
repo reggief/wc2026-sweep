@@ -55,19 +55,22 @@ def parse_webhook(payload: dict) -> list[dict]:
     Extract inbound messages from a Whapi webhook payload.
 
     Returns a list of dicts, each with keys:
-      id, from, group_id, sender_phone, text, is_from_me
+      id, from, group_id, sender_phone, sender_name, text, is_from_me
     """
     messages = []
     for msg in payload.get("messages", []):
         if msg.get("type") != "text":
             continue
         chat_id: str = msg.get("chat_id", "")
+        # Whapi provides the sender's WhatsApp display name in push_name or notify
+        sender_name: str = msg.get("push_name") or msg.get("notify") or ""
         messages.append(
             {
                 "id": msg.get("id", ""),
                 "from": msg.get("from", ""),
                 "group_id": chat_id,
                 "sender_phone": msg.get("from", "").split("@")[0],
+                "sender_name": sender_name,
                 "text": msg.get("text", {}).get("body", ""),
                 "is_from_me": bool(msg.get("from_me", False)),
             }
