@@ -18,7 +18,7 @@ import httpx
 from scoring import Match
 
 API_BASE = "https://worldcup26.ir"
-HTTP_TIMEOUT = 10.0
+HTTP_TIMEOUT = 30.0
 
 # Map worldcup26.ir 'type' values to scoring.py round strings
 ROUND_MAP: dict[str, str] = {
