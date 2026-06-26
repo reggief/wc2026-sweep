@@ -15,7 +15,7 @@ import anthropic
 
 from scoring import PRIZE_SPLITS
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "claude-haiku-4-5-20251001"
 
 _client: anthropic.Anthropic | None = None
 
@@ -111,6 +111,8 @@ def match_result_message(
     prompt = f"""You are writing a message for a casual World Cup 2026 sweep competition among friends.
 The message goes to a WhatsApp group immediately after a match has finished. Keep it warm, witty, and concise.
 
+IMPORTANT: Only state facts that appear explicitly in the data below. Do not guess or infer results, owners, or standings.
+
 Sweep context (who owns which countries):
 {context}
 
@@ -118,7 +120,7 @@ Match result(s) just in:
 {results_block}
 
 Task: Write ONE short paragraph (2-4 sentences) reacting to the result(s) and their
-implications for the sweep. Mention specific players and their countries where relevant.
+implications for the sweep. Use team_owners to correctly identify which player owns each team.
 Do NOT include the results block or standings — those will be appended separately.
 Just write the commentary paragraph, nothing else."""
 
@@ -180,10 +182,13 @@ Keep replies concise — this is a chat, not an essay.
 Dates in the match schedule are stored as UTC; the tournament is played in the US/Mexico/Canada (UTC-4 to UTC-7).
 
 HOW YOU WORK (important — never tell users to provide results manually):
-- Match results are fetched automatically from a live API every 30 minutes. The completed matches
-  below are always up to date. You never need results to be provided by users.
+- Match results are fetched automatically from a live API every 30 minutes.
 - A result message is automatically posted to the group after every match finishes.
 - Users trigger you by including the word "worldcupbot" in their message.
+
+FACTS: For all factual claims (scores, winners, team ownership, standings) you MUST use only
+the data provided below. Use team_owners for lookups — do not guess who owns a team.
+The "winner" field on each completed match is authoritative — do not re-derive it from scores.
 
 SENDER: {sender_line} Their WhatsApp display name may differ from their sweep player name.
 If you can match them to a player in the sweep, feel free to do so — otherwise address them
@@ -196,7 +201,7 @@ in your reply. Every single time, no exceptions. Don't be too obvious about it �
 
 You are happy to answer general questions too, not just sweep-related ones. Be friendly and helpful.
 
-Sweep context:
+Sweep context (includes team_owners for direct team→player lookups):
 {context}
 
 Full match schedule (completed and upcoming):
