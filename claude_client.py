@@ -69,13 +69,20 @@ def _scoring_rules() -> dict:
     }
 
 
+def _team_owner_map(players: dict[str, list[str]]) -> dict[str, str]:
+    """Invert players dict to {team: owner} for unambiguous Claude lookups."""
+    return {team: player for player, teams in players.items() for team in teams}
+
+
 def _sweep_context(state: dict) -> str:
     """Serialise the sweep state into a compact context block for Claude."""
+    players = state.get("players", {})
     return json.dumps(
         {
             "scoring_rules": _scoring_rules(),
             "all_teams": sorted(state.get("team_flags", {}).keys()),
-            "players": state.get("players", {}),
+            "players": players,
+            "team_owners": _team_owner_map(players),
             "advanced_teams": state.get("advanced_teams", []),
             "standings": state.get("standings", []),
         },
@@ -129,15 +136,31 @@ def answer_query(state: dict, question: str, standings: list[dict], sender_phone
     """Generate a reply to a natural language query from the WhatsApp group."""
     context = _sweep_context({**state, "standings": standings})
 
+    def _match_winner(m: dict) -> str | None:
+        if not m.get("completed"):
+            return None
+        if m.get("winner_override"):
+            return m["winner_override"]
+        hs, as_ = m.get("home_score"), m.get("away_score")
+        if hs is None or as_ is None:
+            return None
+        if hs > as_:
+            return m["home_team"]
+        if as_ > hs:
+            return m["away_team"]
+        return "draw"
+
     all_matches_summary = json.dumps(
         [
             {
-                "home": m["home_team"],
-                "away": m["away_team"],
+                "home_team": m["home_team"],
+                "away_team": m["away_team"],
                 "round": m["round"],
                 "date_utc": m["date"],
                 "completed": m["completed"],
-                "score": f"{m['home_score']}-{m['away_score']}" if m.get("completed") else None,
+                "home_score": m["home_score"] if m.get("completed") else None,
+                "away_score": m["away_score"] if m.get("completed") else None,
+                "winner": _match_winner(m),
             }
             for m in state.get("matches", [])
             if m.get("home_team")  # skip undetermined knockout slots
