@@ -10,6 +10,7 @@ Schema of sweep.json:
                        "date", "winner_override"}, ...],
   "winner_overrides": {"game_id": "winning_team_name", ...},
   "team_flags":      {"TeamName": "🇦🇺", ...},
+  "notified_matches": ["game_id", ...],
   "last_polled":     "2026-06-11T10:00:00Z" | null,
   "last_daily_sent": "2026-06-12T23:00:00Z" | null
 }
@@ -32,6 +33,7 @@ DEFAULT_STATE: dict = {
     "matches": [],
     "winner_overrides": {},
     "team_flags": {},
+    "notified_matches": [],
     "last_polled": None,
     "last_daily_sent": None,
     "champion_announced": False,

@@ -3,13 +3,13 @@ Background jobs:
 
   poll_matches — every 30 minutes, fetches latest data from worldcup26.ir,
                  updates sweep.json, and sends a result message to the group
-                 for any match that newly completed since the last poll.
+                 for any completed match that hasn't been announced yet.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -24,6 +24,27 @@ log = logging.getLogger(__name__)
 
 MELBOURNE_TZ = ZoneInfo("Australia/Melbourne")
 
+# One-time migration window for state files saved before notified_matches
+# tracking existed: matches finished more than this long ago are assumed to
+# have already been announced; more recent ones are left unmarked so they
+# get (re)sent on the next successful poll.
+NOTIFIED_MIGRATION_WINDOW_HOURS = 48
+
+
+def _migrate_notified_matches(old_state: dict) -> set[str]:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=NOTIFIED_MIGRATION_WINDOW_HOURS)
+    notified: set[str] = set()
+    for m in old_state.get("matches", []):
+        if not m.get("completed"):
+            continue
+        try:
+            match_date = datetime.strptime(m["date"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except (KeyError, ValueError):
+            continue
+        if match_date < cutoff:
+            notified.add(m["id"])
+    return notified
+
 
 # ---------------------------------------------------------------------------
 # Poll job
@@ -32,7 +53,7 @@ MELBOURNE_TZ = ZoneInfo("Australia/Melbourne")
 def poll_matches() -> None:
     """
     Fetch latest match data from worldcup26.ir and update state.
-    Sends a result message for each batch of newly completed matches.
+    Sends a result message for each batch of completed-but-unannounced matches.
     Silently skips the cycle on any API error.
     """
     try:
@@ -47,10 +68,11 @@ def poll_matches() -> None:
         log.error("poll_matches: failed to load state: %s", exc)
         return
 
-    # Record which matches were already known to be complete before this poll
-    previously_completed = {
-        m["id"] for m in old_state.get("matches", []) if m.get("completed")
-    }
+    if "notified_matches" in old_state:
+        notified: set[str] = set(old_state["notified_matches"])
+    else:
+        notified = _migrate_notified_matches(old_state)
+        log.info("poll_matches: migrated notified_matches, seeded %d match(es)", len(notified))
 
     team_map = teams.build_team_map(raw_teams)
     winner_overrides: dict[str, str] = old_state.get("winner_overrides", {})
@@ -66,6 +88,7 @@ def poll_matches() -> None:
         "matches": [state.match_to_dict(m) for m in parsed_matches],
         "advanced_teams": advanced,
         "team_flags": team_flags,
+        "notified_matches": sorted(notified),
         "last_polled": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -77,21 +100,21 @@ def poll_matches() -> None:
 
     log.info("poll_matches: %d matches, %d advanced teams", len(parsed_matches), len(advanced))
 
-    # Find matches that just became complete
+    # Find completed matches that haven't had a result message sent yet
     newly_finished = [
         m for m in parsed_matches
-        if m.completed and m.id not in previously_completed
+        if m.completed and m.id not in notified
         and m.home_team and m.away_team  # skip undetermined knockout slots
     ]
 
     if newly_finished:
-        _send_match_updates(newly_finished, new_state)
+        _send_match_updates(newly_finished, new_state, notified)
 
     _check_for_champion(new_state)
 
 
-def _send_match_updates(new_matches: list[Match], current_state: dict) -> None:
-    """Send a result message covering one or more newly completed matches."""
+def _send_match_updates(new_matches: list[Match], current_state: dict, notified: set[str]) -> None:
+    """Send a result message covering one or more unannounced completed matches."""
     players: dict[str, list[str]] = current_state.get("players", {})
     all_matches = state.matches_from_state(current_state)
     advanced_set = set(current_state.get("advanced_teams", []))
@@ -104,6 +127,14 @@ def _send_match_updates(new_matches: list[Match], current_state: dict) -> None:
         log.info("Sent result message for %d match(es)", len(new_matches))
     except Exception as exc:
         log.error("Failed to send match result message: %s", exc)
+        return  # leave unmarked so the next poll retries
+
+    notified.update(m.id for m in new_matches)
+    current_state["notified_matches"] = sorted(notified)
+    try:
+        state.save(current_state)
+    except Exception as exc:
+        log.error("poll_matches: failed to persist notified_matches: %s", exc)
 
 
 def _check_for_champion(current_state: dict) -> None:
