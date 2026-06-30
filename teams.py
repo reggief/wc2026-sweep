@@ -123,9 +123,12 @@ def parse_match(
     """
     Convert a raw game dict from /get/games into a scoring.Match.
 
-    winner_overrides — {game_id: winning_team_name_en} stored in sweep.json.
-    Used to record the winner of matches decided by penalty shootout, where
-    the API only stores the regulation+ET scoreline (often a draw).
+    Penalty shootout winners are detected automatically from the API's
+    home_penalty_score / away_penalty_score fields when present.
+
+    winner_overrides — {game_id: winning_team_name_en} — manual fallback
+    stored in sweep.json via WINNER_OVERRIDES_JSON env var. Takes precedence
+    over the auto-detected penalty winner if both are present.
 
     For knockout games not yet determined (home_team_id == "0") team names
     will be empty strings; those matches have completed=False so they
@@ -149,9 +152,25 @@ def parse_match(
         except (KeyError, ValueError, TypeError):
             pass
 
-    dt = _parse_local_date(raw["local_date"])
+    # Auto-detect penalty winner from API fields when present
+    auto_penalty_winner: str | None = None
+    if finished:
+        try:
+            hp = raw.get("home_penalty_score")
+            ap = raw.get("away_penalty_score")
+            if hp is not None and ap is not None:
+                hp_int, ap_int = int(hp), int(ap)
+                if hp_int > ap_int:
+                    auto_penalty_winner = home_name
+                elif ap_int > hp_int:
+                    auto_penalty_winner = away_name
+        except (ValueError, TypeError):
+            pass
 
-    override = (winner_overrides or {}).get(game_id)
+    # Manual override takes precedence; auto-detected penalty winner is fallback
+    override = (winner_overrides or {}).get(game_id) or auto_penalty_winner
+
+    dt = _parse_local_date(raw["local_date"])
 
     return Match(
         id=game_id,
