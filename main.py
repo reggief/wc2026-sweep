@@ -51,9 +51,35 @@ def _sync_players_from_env() -> None:
     log.info("Players mapping loaded from PLAYERS_JSON: %d players", len(players))
 
 
+def _sync_winner_overrides_from_env() -> None:
+    """
+    If WINNER_OVERRIDES_JSON is set, merge it into sweep.json as winner_overrides.
+    Use this to record penalty shootout winners that the API can't detect.
+
+    Format: {"match_id": "winning_team_name_en", ...}
+    Example: {"74": "Paraguay", "88": "France"}
+
+    Merges with any existing overrides so previously set values are preserved.
+    """
+    raw = os.environ.get("WINNER_OVERRIDES_JSON", "").strip()
+    if not raw:
+        return
+    import json as _json
+    try:
+        overrides = _json.loads(raw)
+    except Exception as exc:
+        log.error("WINNER_OVERRIDES_JSON is not valid JSON: %s", exc)
+        return
+    current = state.load()
+    current.setdefault("winner_overrides", {}).update(overrides)
+    state.save(current)
+    log.info("Winner overrides applied from WINNER_OVERRIDES_JSON: %s", overrides)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _sync_players_from_env()
+    _sync_winner_overrides_from_env()
     _scheduler = sched.create_scheduler()
     _scheduler.start()
     log.info("Scheduler started")
